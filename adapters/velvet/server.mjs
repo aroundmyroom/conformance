@@ -385,7 +385,6 @@ async function main() {
   ]);
   const require = createRequire(path.join(velvetRoot, 'package.json'));
   const { WebSocket } = require('ws');
-  const sharp = require('sharp');
 
   const tracer = installTracer({ CipherState, WebSocket, Reassembler: wire.Reassembler, decodeJson: wire.decodeJson });
   const payloadSizes = new Map();
@@ -420,7 +419,12 @@ async function main() {
   const commands = [];
   let clip = null;
   try {
-    if (PLAYER_SCENARIOS.has(scenario)) clip = await prepareClip({ ffmpeg, ffprobe, fixture: args.fixture, clipSeconds: Number(args.clip_seconds), dir: dataDir });
+    // The first ffmpeg run on a fresh macOS runner is slow (the binary is scanned), so the clip is cut while the
+    // server starts and the harness's 10 s ready window only covers starting the listener.
+    const clipReady = PLAYER_SCENARIOS.has(scenario)
+      ? prepareClip({ ffmpeg, ffprobe, fixture: args.fixture, clipSeconds: Number(args.clip_seconds), dir: dataDir })
+      : Promise.resolve(null);
+    clipReady.catch(() => {});
     const trackItem = {
       filepath: 'almost_silent.flac', file: args.fixture,
       meta: {
@@ -431,7 +435,7 @@ async function main() {
     };
     rooms = await RoomManager.open(dataDir, {
       ffmpeg, logger: log, setPlayback: (m, on) => server.setPlayback(m.clientId, on),
-      artworkFor: (_item, spec) => sharp(artworkSvg(spec.width, spec.height)).resize(spec.width, spec.height, { fit: 'contain', background: '#000' })
+      artworkFor: (_item, spec) => require('sharp')(artworkSvg(spec.width, spec.height)).resize(spec.width, spec.height, { fit: 'contain', background: '#000' })
         .toFormat(spec.format === 'jpeg' ? 'jpeg' : spec.format, spec.format === 'jpeg' ? { quality: 85 } : {}).toBuffer(),
     });
     server.on('client', (conn, info) => {
@@ -465,6 +469,7 @@ async function main() {
       discovery = 'registry_fallback';
     }
     await waitFor(`client ${args.client_name}`, () => target, deadline);
+    clip = await clipReady;
 
     await driveScenario({ args, scenario, rooms, roomId, target, deadline, clip, trackItem, commands, tracer });
 
