@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   publish-report:
-    if: github.repository == 'sendspin/conformance'
+    if: github.repository == 'sendspin/conformance' || github.repository == 'aroundmyroom/conformance'
     runs-on: macos-26
     # A newer push to a pull request cancels the run it supersedes. Every other
     # event gets a group of its own: deploy-pages fails on GitHub's side when its
