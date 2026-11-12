@@ -89,7 +89,7 @@ jobs:
           uv run python scripts/run_all.py \
             --results-dir artifacts/results \
             --build-report-path artifacts/build-report.json \
-            --from "aiosendspin,sendspin-server-cpp" \
+            --from "aiosendspin,sendspin-server-cpp,velvet" \
             --to "aiosendspin,sendspin-cpp,sendspin-dotnet,sendspin-js,sendspin-rs,SendspinKit"
 
       - name: Record harness outcome

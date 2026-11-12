@@ -203,6 +203,32 @@ def _node_build_result() -> BuildResult:
     return _built_result(adapter="sendspin-js-adapters", completed=completed)
 
 
+def _velvet_build_result() -> BuildResult:
+    adapter = "velvet-server"
+    node = shutil.which("node")
+    npm = shutil.which("npm")
+    if node is None or npm is None:
+        return {"adapter": adapter, "status": "failed", "detail": "node and npm are required"}
+    velvet_repo = resolve_repo_path("velvet")
+    if velvet_repo is None:
+        return {"adapter": adapter, "status": "failed", "detail": "velvet repository checkout was not found"}
+
+    install = _run_command([npm, "ci", "--omit=dev", "--no-audit", "--no-fund"], cwd=velvet_repo)
+    if install.returncode != 0:
+        return {"adapter": adapter, "status": "failed", "detail": _trim_output(install.stdout, install.stderr)}
+
+    adapter_dir = repo_root() / "adapters" / "velvet"
+    adapter_install = _run_command([npm, "install", "--package-lock=false", "--no-audit", "--no-fund"], cwd=adapter_dir)
+    if adapter_install.returncode != 0:
+        return {"adapter": adapter, "status": "failed", "detail": _trim_output(adapter_install.stdout, adapter_install.stderr)}
+
+    for script in ("trace.mjs", "server.mjs"):
+        completed = _run_command([node, "--check", str(adapter_dir / script)])
+        if completed.returncode != 0:
+            break
+    return _built_result(adapter=adapter, completed=completed)
+
+
 def _cargo_build_result() -> BuildResult:
     cargo = find_cargo()
     if cargo is None:
@@ -358,6 +384,7 @@ def _build_plan() -> BuildPlan:
             ),
         ),
         ("sendspin-js-adapters", _node_build_result),
+        ("velvet-server", _velvet_build_result),
     )
 
 
